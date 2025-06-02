@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Resultados e logs
+resultados_processamento/
+*.log
+
+# Sistema
+.DS_Store
+Thumbs.db 

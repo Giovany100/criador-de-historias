@@ -1,0 +1,22 @@
+{
+  "masculino": [
+    "Adriano", "Alessandro", "Alberto", "Aldo", "Alessio", "Alfonso", "Alfredo", "Andrea", "Angelo", "Antonio",
+    "Armando", "Arturo", "Aureliano", "Bartolomeo", "Benedetto", "Bruno", "Carlo", "Carmine", "Cesare", "Claudio",
+    "Cristiano", "Daniele", "Dante", "Davide", "Domenico", "Edoardo", "Emanuele", "Emilio", "Enrico", "Enzo",
+    "Ernesto", "Fabio", "Fabrizio", "Fausto", "Federico", "Ferdinando", "Filippo", "Francesco", "Franco",
+    "Gaetano", "Gennaro", "Gabriele", "Giacomo", "Gianluca", "Gianmarco", "Gianni", "Giorgio", "Giuseppe",
+    "Giovanni", "Giuliano", "Giulio", "Guido", "Ignazio", "Ivano", "Leonardo", "Lorenzo", "Luca", "Luigi",
+    "Marcello", "Marco", "Mario", "Massimo", "Matteo", "Maurizio", "Michele", "Nicola", "Paolo", "Pasquale",
+    "Pietro", "Riccardo"
+  ],
+  "feminino": [
+    "Adele", "Adriana", "Agata", "Alessandra", "Alessia", "Alice", "Ambra", "Amelia", "Angela", "Anna",
+    "Annalisa", "Antonella", "Arianna", "Aurora", "Beatrice", "Benedetta", "Bianca", "Camilla", "Carla",
+    "Carlotta", "Carmen", "Caterina", "Chiara", "Claudia", "Cristina", "Daniela", "Debora", "Donatella",
+    "Eleonora", "Elisa", "Elisabetta", "Emma", "Enrica", "Erica", "Ester", "Eufemia", "Eva", "Federica",
+    "Fiorella", "Flavia", "Francesca", "Gabriella", "Gaia", "Giada", "Gianna", "Giorgia", "Giovanna", "Giulia",
+    "Giuliana", "Grazia", "Ilaria", "Isabella", "Laura", "Lavinia", "Letizia", "Lucia", "Ludovica", "Luisa",
+    "Maddalena", "Manuela", "Mara", "Maria", "Marisa", "Martina", "Melissa", "Michela", "Nadia", "Paola",
+    "Roberta", "Veronica"
+  ]
+} 
