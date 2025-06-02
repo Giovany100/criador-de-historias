@@ -113,8 +113,14 @@ if btn_iniciar_processamento:
 
             with st.spinner('🤖 Processando resumos, gerando histórias, traduzindo e criando imagens... Isso pode levar um bom tempo!'):
                 try:
+                    print(f"[DEBUG] app.py: PREPARANDO PARA CHAMAR iniciar_processamento_em_lote com temp_dir_resumos='{temp_dir_resumos}' e idiomas='{idiomas_str_para_funcao}'")
+                    st.info(f"APP.PY DEBUG: Chamando main.py com pasta: {temp_dir_resumos}") # Adiciona info na UI também
+
                     sucesso = iniciar_processamento_em_lote(temp_dir_resumos, idiomas_str_para_funcao)
                     
+                    print(f"[DEBUG] app.py: RETORNO de iniciar_processamento_em_lote: {sucesso}")
+                    st.info(f"APP.PY DEBUG: Retorno do main.py: {sucesso}") # Adiciona info na UI
+
                     log_area.empty() 
                     if sucesso:
                         st.success(f"Processamento concluído com sucesso! 🎉 Preparando arquivos para download...", icon="✅")
