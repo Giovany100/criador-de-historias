@@ -1,6 +1,8 @@
 import streamlit as st
 import os
 import tempfile # Adicionado para lidar com arquivos temporários
+import zipfile # Adicionado para funcionalidade de ZIP
+import io # Adicionado para manipulação de bytes em memória
 
 # Importar a função refatorada do main.py
 # Certifique-se de que main.py esteja na mesma pasta ou no PYTHONPATH
@@ -115,8 +117,29 @@ if btn_iniciar_processamento:
                     
                     log_area.empty() 
                     if sucesso:
-                        st.success(f"Processamento concluído com sucesso! 🎉 Os resultados (se houver) foram processados. No Streamlit Cloud, os arquivos de saída não são diretamente baixáveis desta forma padrão.", icon="✅")
+                        st.success(f"Processamento concluído com sucesso! 🎉 Preparando arquivos para download...", icon="✅")
                         st.balloons()
+
+                        # Criar arquivo ZIP em memória
+                        zip_buffer = io.BytesIO()
+                        with zipfile.ZipFile(zip_buffer, "a", zipfile.ZIP_DEFLATED, False) as zip_file:
+                            for root, _, files in os.walk(temp_dir_resumos):
+                                for file in files:
+                                    file_path = os.path.join(root, file)
+                                    # Adicionar arquivo ao ZIP, mantendo a estrutura de pastas relativa a temp_dir_resumos
+                                    zip_file.write(file_path, os.path.relpath(file_path, temp_dir_resumos))
+                        
+                        zip_buffer.seek(0)
+                        
+                        st.download_button(
+                            label="📥 Baixar Resultados (.zip)",
+                            data=zip_buffer,
+                            file_name="resultados_criador_historias.zip",
+                            mime="application/zip",
+                            use_container_width=True
+                        )
+                        st.info("Clique no botão acima para baixar todos os arquivos de entrada e saída processados.")
+
                     else:
                         st.error("O processamento encontrou um problema ou foi interrompido. Verifique os logs do aplicativo no Streamlit Cloud para mais detalhes.", icon="🚨")
                 
