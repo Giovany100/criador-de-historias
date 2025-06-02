@@ -1,3 +1,5 @@
+streamlit
 openai
-requests 
-pyngrok>=5.0.0 
+requests
+unidecode
+configparser

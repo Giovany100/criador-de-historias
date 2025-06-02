@@ -28,44 +28,82 @@ except OSError as e:
     input("Pressione Enter para fechar...") # Pausa para ver o erro no console
     exit()
 
-def carregar_configuracoes():
-    """Carrega as configurações do arquivo config.ini."""
-    config = configparser.ConfigParser()
-    if not os.path.exists(CONFIG_FILE):
-        raise FileNotFoundError(f"Arquivo de configuração '{CONFIG_FILE}' não encontrado. Certifique-se de criá-lo.")
-    config.read(CONFIG_FILE)
-    return config
+def carregar_configuracoes_com_fallback(config_parser=None):
+    """
+    Carrega configurações priorizando variáveis de ambiente e depois o arquivo config.ini.
+    Retorna um dicionário com as configurações.
+    """
+    configs = {}
+    
+    # Carregar do config.ini se um parser for fornecido
+    cfg_parser = config_parser
+    if cfg_parser is None:
+        cfg_parser = configparser.ConfigParser()
+        if os.path.exists(CONFIG_FILE):
+            cfg_parser.read(CONFIG_FILE)
+        else:
+            print(f"AVISO: Arquivo de configuração '{CONFIG_FILE}' não encontrado. Algumas configurações podem precisar ser definidas via variáveis de ambiente.")
+
+    def get_config_value(section, key, env_var_name, default=None, is_critical=False):
+        value = os.getenv(env_var_name)
+        if value:
+            print(f"INFO: Carregada configuração '{key}' da variável de ambiente '{env_var_name}'.")
+            return value
+        if cfg_parser and cfg_parser.has_section(section) and cfg_parser.has_option(section, key):
+            value_from_file = cfg_parser.get(section, key)
+            # Evitar usar valores placeholder do arquivo se a variável de ambiente não estiver definida
+            if "SUA_CHAVE_" in value_from_file.upper() or "SEU_ENDPOINT_" in value_from_file.upper():
+                 if is_critical:
+                    raise ValueError(f"Configuração crítica '{key}' no arquivo '{CONFIG_FILE}' é um placeholder ('{value_from_file}') e a variável de ambiente '{env_var_name}' não está definida.")
+                 else:
+                    print(f"AVISO: Configuração '{key}' no arquivo '{CONFIG_FILE}' é um placeholder ('{value_from_file}') e a variável de ambiente '{env_var_name}' não está definida. Usando default: {default}")
+                    return default
+            print(f"INFO: Carregada configuração '{key}' do arquivo '{CONFIG_FILE}'.")
+            return value_from_file
+        if is_critical:
+            raise ValueError(f"Configuração crítica '{key}' não encontrada nem na variável de ambiente '{env_var_name}' nem no arquivo '{CONFIG_FILE}'.")
+        return default
+
+    # API Keys
+    configs['OPENAI_API_KEY'] = get_config_value('API_KEYS', 'OPENAI_API_KEY', 'OPENAI_API_KEY', is_critical=True)
+    configs['GOAPI_API_KEY'] = get_config_value('API_KEYS', 'GOAPI_API_KEY', 'GOAPI_API_KEY', default='GOAPI_KEY_NAO_CONFIGURADA')
+    configs['GOAPI_ENDPOINT_URL'] = get_config_value('API_KEYS', 'GOAPI_ENDPOINT_URL', 'GOAPI_ENDPOINT_URL', default='GOAPI_ENDPOINT_NAO_CONFIGURADO')
+
+    # OpenAI Models
+    configs['MODELO_GERACAO_HISTORIA'] = get_config_value('OPENAI_MODELS', 'GERACAO_HISTORIA', 'MODELO_GERACAO_HISTORIA', default='gpt-3.5-turbo')
+    configs['MODELO_SUBSTITUICAO_NOMES'] = get_config_value('OPENAI_MODELS', 'SUBSTITUICAO_NOMES', 'MODELO_SUBSTITUICAO_NOMES', default='gpt-3.5-turbo')
+    configs['MODELO_TRADUCAO'] = get_config_value('OPENAI_MODELS', 'TRADUCAO', 'MODELO_TRADUCAO', default='gpt-3.5-turbo')
+    configs['MODELO_DESCRICAO_PERSONAGENS'] = get_config_value('OPENAI_MODELS', 'DESCRICAO_PERSONAGENS', 'MODELO_DESCRICAO_PERSONAGENS', default='gpt-3.5-turbo')
+    configs['MODELO_CRIACAO_PROMPTS_IMAGEM'] = get_config_value('OPENAI_MODELS', 'CRIACAO_PROMPTS_IMAGEM', 'MODELO_CRIACAO_PROMPTS_IMAGEM', default='gpt-3.5-turbo')
+    
+    return configs
 
 # Carregar configurações globais
 try:
-    config = carregar_configuracoes()
-    openai_api_key_from_config = config.get('API_KEYS', 'OPENAI_API_KEY')
-    if not openai_api_key_from_config or openai_api_key_from_config == 'SUA_CHAVE_OPENAI_AQUI':
-        raise ValueError("Chave da API OpenAI não configurada ou é o valor placeholder.")
+    app_configs = carregar_configuracoes_com_fallback()
+    
+    openai_api_key_from_config = app_configs.get('OPENAI_API_KEY')
+    if not openai_api_key_from_config: # A criticidade já é tratada em get_config_value
+        raise ValueError("Chave da API OpenAI não configurada.")
     openai.api_key = openai_api_key_from_config
     
-    # Carregar configurações da GoAPI do config.ini
-    GOAPI_API_KEY = config.get('API_KEYS', 'GOAPI_API_KEY')
-    GOAPI_ENDPOINT_URL = config.get('API_KEYS', 'GOAPI_ENDPOINT_URL') 
+    GOAPI_API_KEY = app_configs.get('GOAPI_API_KEY')
+    GOAPI_ENDPOINT_URL = app_configs.get('GOAPI_ENDPOINT_URL')
     
-    # Verificar se a chave e o endpoint da GoAPI estão configurados e não são placeholders
-    goapi_key_placeholder = 'SUA_CHAVE_GOAPI_AQUI' # Placeholder para a chave GoAPI
-    goapi_endpoint_placeholder = 'SEU_ENDPOINT_GOAPI_AQUI' # Placeholder para o endpoint GoAPI
+    if GOAPI_API_KEY == 'GOAPI_KEY_NAO_CONFIGURADA' or GOAPI_ENDPOINT_URL == 'GOAPI_ENDPOINT_NAO_CONFIGURADO':
+        print("AVISO: Chave da API GoAPI ou URL do endpoint não configurados via Secrets ou config.ini. A geração de imagens pode falhar.")
 
-    if not GOAPI_API_KEY or GOAPI_API_KEY == goapi_key_placeholder or \
-       not GOAPI_ENDPOINT_URL or GOAPI_ENDPOINT_URL == goapi_endpoint_placeholder:
-        print("AVISO: Chave da API GoAPI ou URL do endpoint não configurados corretamente no config.ini "
-              "(API_KEYS -> GOAPI_API_KEY, API_KEYS -> GOAPI_ENDPOINT_URL) ou são valores placeholder. "
-              "A geração de imagens pode falhar.")
+    MODELO_GERACAO_HISTORIA = app_configs.get('MODELO_GERACAO_HISTORIA')
+    MODELO_SUBSTITUICAO_NOMES = app_configs.get('MODELO_SUBSTITUICAO_NOMES')
+    MODELO_TRADUCAO = app_configs.get('MODELO_TRADUCAO')
+    MODELO_DESCRICAO_PERSONAGENS = app_configs.get('MODELO_DESCRICAO_PERSONAGENS')
+    MODELO_CRIACAO_PROMPTS_IMAGEM = app_configs.get('MODELO_CRIACAO_PROMPTS_IMAGEM')
 
-    MODELO_GERACAO_HISTORIA = config.get('OPENAI_MODELS', 'GERACAO_HISTORIA')
-    MODELO_SUBSTITUICAO_NOMES = config.get('OPENAI_MODELS', 'SUBSTITUICAO_NOMES')
-    MODELO_TRADUCAO = config.get('OPENAI_MODELS', 'TRADUCAO')
-    MODELO_DESCRICAO_PERSONAGENS = config.get('OPENAI_MODELS', 'DESCRICAO_PERSONAGENS')
-    MODELO_CRIACAO_PROMPTS_IMAGEM = config.get('OPENAI_MODELS', 'CRIACAO_PROMPTS_IMAGEM')
-except (configparser.NoSectionError, configparser.NoOptionError, FileNotFoundError, ValueError) as e:
-    print(f"Erro ao carregar configurações: {e}")
-    print(f"Por favor, verifique seu arquivo '{CONFIG_FILE}'. Saindo.")
+except (configparser.Error, FileNotFoundError, ValueError) as e: # configparser.Error é mais genérico
+    print(f"Erro fatal ao carregar configurações: {e}")
+    print(f"Por favor, verifique seus Streamlit Secrets (para deploy) ou o arquivo '{CONFIG_FILE}' (para execução local). Saindo.")
+    # Em um ambiente Streamlit, exit() pode não ser ideal, mas para erros críticos de config é necessário.
+    # Se for dentro de um app Streamlit, st.error() e st.stop() seriam melhores, mas aqui é o setup inicial do main.py.
     exit()
 
 # --- FUNÇÕES DE APOIO ---

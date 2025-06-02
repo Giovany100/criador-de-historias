@@ -1,6 +1,6 @@
 import streamlit as st
 import os
-from pyngrok import ngrok
+import tempfile # Adicionado para lidar com arquivos temporários
 
 # Importar a função refatorada do main.py
 # Certifique-se de que main.py esteja na mesma pasta ou no PYTHONPATH
@@ -23,6 +23,15 @@ except ImportError:
 # Usar o valor importado se bem-sucedido, senão o default.
 APP_PASTA_SAIDA_PRINCIPAL = MAIN_PASTA_SAIDA_PRINCIPAL if 'MAIN_PASTA_SAIDA_PRINCIPAL' in locals() else "resultados_processamento"
 
+# Criar a pasta de saída principal se ela não existir no ambiente do Streamlit Cloud
+# Isso é importante porque o main.py também tenta criá-la, mas é bom garantir.
+if not os.path.exists(APP_PASTA_SAIDA_PRINCIPAL):
+    try:
+        os.makedirs(APP_PASTA_SAIDA_PRINCIPAL)
+    except OSError as e:
+        st.error(f"Não foi possível criar a pasta de saída principal '{APP_PASTA_SAIDA_PRINCIPAL}' no ambiente do Streamlit: {e}")
+        # Não necessariamente parar, pois main.py pode tentar novamente, mas é um aviso.
+
 st.set_page_config(
     page_title="Criador de Histórias IA", 
     page_icon="🤖", 
@@ -32,10 +41,14 @@ st.set_page_config(
 
 # --- Barra Lateral (Sidebar) para Entradas ---
 st.sidebar.header("⚙️ Configurações de Entrada")
-pasta_resumos = st.sidebar.text_input(
-    "Pasta com os arquivos de resumo (.txt):", 
-    key="pasta_resumos_input",
-    help="Forneça o caminho completo para a pasta. Ex: C:/Users/SeuUsuario/Resumos"
+
+# Alterado de text_input para file_uploader
+arquivos_resumo_carregados = st.sidebar.file_uploader(
+    "Carregue os arquivos de resumo (.txt):",
+    type=["txt"],
+    accept_multiple_files=True,  # Permitir múltiplos arquivos
+    key="resumos_uploader",
+    help="Selecione um ou mais arquivos de texto (.txt) contendo os resumos."
 )
 
 st.sidebar.subheader("🗣️ Idiomas para Tradução")
@@ -69,68 +82,54 @@ btn_iniciar_processamento = st.sidebar.button(
     key="btn_iniciar"
 )
 st.sidebar.markdown("---_---")
-st.sidebar.caption(f"Version 1.2 | Pasta de Saída: {APP_PASTA_SAIDA_PRINCIPAL}")
+st.sidebar.caption(f"Version 1.2 | Pasta de Saída Relativa: {APP_PASTA_SAIDA_PRINCIPAL}")
 
 # --- Página Principal ---
 st.title("🌟 Criador de Histórias e Imagens com IA 🎬")
 st.markdown("Bem-vindo ao seu assistente para transformar resumos em roteiros completos, traduzidos e com sugestões de imagens!")
 st.markdown("Configure as entradas na barra lateral à esquerda e clique em **Iniciar Processamento**.")
 
-st.info("ℹ️ **Nota:** Os logs detalhados do processo aparecerão no console (terminal) onde o Streamlit foi iniciado.", icon="📢")
 st.divider()
 
 # Lógica de processamento (quando o botão é clicado)
 if btn_iniciar_processamento:
-    if not pasta_resumos:
-        st.warning("Por favor, forneça o caminho para a pasta de resumos na barra lateral.", icon="⚠️")
-    elif not os.path.isdir(pasta_resumos):
-        st.error(f"O caminho da pasta de resumos fornecido não é válido ou não existe: {pasta_resumos}", icon="❌")
+    if not arquivos_resumo_carregados: 
+        st.warning("Por favor, carregue pelo menos um arquivo de resumo (.txt) na barra lateral.", icon="⚠️")
     else:
-        # Placeholder para o log na interface (será aprimorado depois)
         log_area = st.empty()
         log_area.info("Iniciando o processamento... Por favor, aguarde.", icon="⏳")
         
-        with st.spinner('🤖 Processando resumos, gerando histórias, traduzindo e criando imagens... Isso pode levar um bom tempo!'):
-            try:
-                # Chamar a função principal do main.py
-                # Idealmente, a função iniciar_processamento_em_lote seria modificada para aceitar um callback 
-                # para atualizar a interface Streamlit com os logs.
-                # Por enquanto, os logs principais ainda irão para o console.
+        with tempfile.TemporaryDirectory(prefix="resumos_streamlit_") as temp_dir_resumos:
+            for uploaded_file in arquivos_resumo_carregados:
+                try:
+                    temp_file_path = os.path.join(temp_dir_resumos, uploaded_file.name)
+                    with open(temp_file_path, "wb") as f:
+                        f.write(uploaded_file.getbuffer())
+                except Exception as e_save:
+                    st.error(f"Erro ao salvar o arquivo carregado '{uploaded_file.name}': {e_save}")
+                    st.stop() 
+
+            with st.spinner('🤖 Processando resumos, gerando histórias, traduzindo e criando imagens... Isso pode levar um bom tempo!'):
+                try:
+                    sucesso = iniciar_processamento_em_lote(temp_dir_resumos, idiomas_str_para_funcao)
+                    
+                    log_area.empty() 
+                    if sucesso:
+                        st.success(f"Processamento concluído com sucesso! 🎉 Os resultados (se houver) foram processados. No Streamlit Cloud, os arquivos de saída não são diretamente baixáveis desta forma padrão.", icon="✅")
+                        st.balloons()
+                    else:
+                        st.error("O processamento encontrou um problema ou foi interrompido. Verifique os logs do aplicativo no Streamlit Cloud para mais detalhes.", icon="🚨")
                 
-                sucesso = iniciar_processamento_em_lote(pasta_resumos, idiomas_str_para_funcao)
-                
-                log_area.empty() # Limpar a mensagem de "Iniciando..."
-                if sucesso:
-                    st.success(f"Processamento concluído com sucesso! 🎉 Verifique a pasta de resultados (normalmente em '{APP_PASTA_SAIDA_PRINCIPAL}') e o console para logs detalhados.", icon="✅")
-                    st.balloons()
-                else:
-                    st.error("O processamento encontrou um problema ou foi interrompido. Verifique os logs no console.", icon="🚨")
-            except ImportError:
-                 st.error("Falha ao executar o processamento. O módulo 'main' não pôde ser importado corretamente no início.")                 
-            except Exception as e:
-                log_area.empty()
-                st.error(f"Ocorreu um erro inesperado durante o processamento: {e}", icon="🔥")
-                st.exception(e) # Mostra o traceback completo na interface para depuração
+                except ImportError as e_import: 
+                     st.error(f"Falha crítica: {e_import}. O módulo 'main' ou suas dependências não puderam ser importados corretamente no início.")
+                     st.exception(e_import)
+                except Exception as e_process:
+                    log_area.empty()
+                    st.error(f"Ocorreu um erro inesperado durante o processamento: {e_process}", icon="🔥")
+                    st.exception(e_process) 
 else:
     st.markdown("### Como usar:")
-    st.markdown("1. Preencha os campos na **barra lateral à esquerda**.")
-    st.markdown("2. Clique em `Iniciar Processamento`.")
-    st.markdown("3. Acompanhe o progresso no console e aguarde a mensagem de finalização aqui.")
-
-# Configuração do ngrok (adicione no início do arquivo)
-def iniciar_tunnel():
-    try:
-        public_url = ngrok.connect(8501)
-        st.sidebar.success(f'Acesse este app em: {public_url}')
-    except Exception as e:
-        st.sidebar.error('Erro ao criar túnel ngrok. Verifique sua conexão com a internet.')
-
-if __name__ == "__main__":
-    import streamlit.web.cli as stcli
-    import sys
-    
-    # Iniciar o túnel ngrok
-    iniciar_tunnel()
-    
-    sys.argv = ["streamlit", "run", "app.py", "--server.address", "0.0.0.0", "--server.port", "8501"]
-    sys.exit(stcli.main()) 
+    st.markdown("1. Carregue um ou mais arquivos de resumo (.txt) na **barra lateral à esquerda**.")
+    st.markdown("2. Selecione os idiomas para tradução (opcional).")
+    st.markdown("3. Clique em `Iniciar Processamento`.")
+    st.markdown("4. Acompanhe o progresso e aguarde a mensagem de finalização aqui. Os logs detalhados podem ser visualizados no console do Streamlit Cloud.")
