@@ -833,8 +833,19 @@ def gerar_imagem_goapi(prompt_texto, nome_arquivo_saida_base, base_filename, pas
 
 # --- FUNÇÃO PRINCIPAL REATORADA ---
 def iniciar_processamento_em_lote(pasta_resumos_input, idiomas_para_traduzir_str_input):
-    print("--- INICIANDO CRIADOR DE HISTÓRIAS E IMAGENS (PROCESSAMENTO EM LOTE V2) ---")
-    # A lógica original de input() é removida daqui, pois os valores vêm como argumentos
+    print(f"[DEBUG] main.py: Iniciando 'iniciar_processamento_em_lote'.")
+    print(f"[DEBUG] main.py: Pasta de resumos recebida: {pasta_resumos_input}")
+    
+    # Lista os arquivos .txt na pasta de resumos
+    arquivos_resumo_txt = glob.glob(os.path.join(pasta_resumos_input, '*.txt'))
+    print(f"[DEBUG] main.py: Arquivos .txt encontrados em '{pasta_resumos_input}': {arquivos_resumo_txt}")
+
+    if not arquivos_resumo_txt:
+        print(f"[DEBUG] main.py: Nenhum arquivo .txt encontrado em '{pasta_resumos_input}'. Encerrando processamento de lote sem ação aparente, mas retornará sucesso se nenhum erro ocorrer.")
+        # A função original continua e retorna True no final se não processar arquivos.
+        # Manter esse comportamento para não quebrar o fluxo do app.py.
+
+    print(f"INFO: Iniciando processamento em lote para arquivos em: {pasta_resumos_input}")
 
     if not os.path.isdir(pasta_resumos_input):
         print(f"Erro: O caminho '{pasta_resumos_input}' não é uma pasta válida ou não existe. Saindo.")
